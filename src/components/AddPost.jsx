@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import { useApiCall } from '../hooks/useApi';
+import { postsApi, isApiSuccess } from '../services/api';
+import { validatePostData, sanitizeInput } from '../utils/validation';
+import { UI_MESSAGES } from '../utils/constants';
 import './AddPost.css';
 
 function AddPost({ onPostAdded }) {
@@ -7,57 +11,45 @@ function AddPost({ onPostAdded }) {
     body: '', 
     user_id: 1 
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const { loading, error, execute, clearError } = useApiCall();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!form.title.trim() || !form.body.trim()) {
-      setError('Title and body are required');
-      return;
+    // Client-side validation
+    const validation = validatePostData(form.title, form.body, form.user_id);
+    if (!validation.isValid) {
+      return; // Let the form validation handle the display
     }
 
     try {
-      setLoading(true);
-      setError(null);
-      setSuccess(false);
+      const sanitizedForm = {
+        title: sanitizeInput(form.title),
+        body: sanitizeInput(form.body),
+        user_id: form.user_id
+      };
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/posts`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json" 
-        },
-        body: JSON.stringify(form)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create post');
-      }
-
-      const newPost = await response.json();
+      const response = await execute(() => postsApi.create(sanitizedForm));
       
-      setForm({ title: '', body: '', user_id: 1 });
-      setSuccess(true);
-      
-      if (onPostAdded) {
-        onPostAdded(newPost);
+      if (isApiSuccess(response)) {
+        setForm({ title: '', body: '', user_id: 1 });
+        setSuccess(true);
+        
+        if (onPostAdded) {
+          onPostAdded(response.data);
+        }
+
+        setTimeout(() => setSuccess(false), 3000);
       }
-
-      setTimeout(() => setSuccess(false), 3000);
-
     } catch (err) {
-      setError(err.message);
       console.error('Error creating post:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleInputChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
-    if (error) setError(null);
+    if (error) clearError();
   };
 
   return (
@@ -72,7 +64,7 @@ function AddPost({ onPostAdded }) {
       
       {success && (
         <div className="success-message">
-          Post created successfully!
+          {UI_MESSAGES.SUCCESS_POST_CREATED}
         </div>
       )}
 
