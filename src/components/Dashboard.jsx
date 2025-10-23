@@ -17,13 +17,13 @@ function Dashboard() {
       <header className="dashboard-header">
         <h1>Posts Dashboard</h1>
         <nav className="dashboard-nav">
-          <button 
+          <button
             className={activeTab === 'posts' ? 'active' : ''}
             onClick={() => setActiveTab('posts')}
           >
             All Posts
           </button>
-          <button 
+          <button
             className={activeTab === 'add' ? 'active' : ''}
             onClick={() => setActiveTab('add')}
           >
