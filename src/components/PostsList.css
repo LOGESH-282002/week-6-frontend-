@@ -89,11 +89,37 @@
   margin-right: 0.5rem;
 }
 
+.post-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .post-id {
   background: #f5f5f5;
   color: #666;
   padding: 0.2rem 0.4rem;
   font-size: 0.7rem;
+}
+
+.delete-btn {
+  background: #ff4444;
+  color: white;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.delete-btn:hover {
+  background: #cc0000;
 }
 
 .post-body {

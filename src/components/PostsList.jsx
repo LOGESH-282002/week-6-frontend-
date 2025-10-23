@@ -1,40 +1,33 @@
 import { useEffect, useState } from 'react';
+import { usePostsApi } from '../hooks/useApi';
+import { UI_MESSAGES, PAGINATION } from '../utils/constants';
+import { validateSearchTerm } from '../utils/validation';
 import './PostsList.css';
 
 function PostsList({ refreshTrigger }) {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState({});
+  const {
+    posts,
+    pagination,
+    loading,
+    error,
+    fetchPosts,
+    deletePost,
+    clearError
+  } = usePostsApi();
+  
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
 
-  const fetchPosts = async (page = 1, search = '') => {
+  const loadPosts = async (page = 1, search = '') => {
     try {
-      setLoading(true);
-      setError(null);
-      
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '6',
-        search: search
+      await fetchPosts({
+        page,
+        limit: PAGINATION.DEFAULT_LIMIT,
+        search: validateSearchTerm(search)
       });
-      
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/posts?${params}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch posts');
-      }
-      
-      const data = await response.json();
-      setPosts(data.posts);
-      setPagination(data.pagination);
     } catch (err) {
-      setError(err.message);
       console.error('Error fetching posts:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -54,19 +47,40 @@ function PostsList({ refreshTrigger }) {
     setCurrentPage(1);
   };
 
+  const handleDeletePost = async (postId) => {
+    if (window.confirm(UI_MESSAGES.DELETE_CONFIRMATION)) {
+      try {
+        await deletePost(postId);
+        // Refresh the current page if it becomes empty
+        if (posts.length === 1 && currentPage > 1) {
+          setCurrentPage(prev => prev - 1);
+        } else {
+          loadPosts(currentPage, searchTerm);
+        }
+      } catch (err) {
+        console.error('Error deleting post:', err);
+      }
+    }
+  };
+
+  const handleRetry = () => {
+    clearError();
+    loadPosts(currentPage, searchTerm);
+  };
+
   useEffect(() => {
-    fetchPosts(currentPage, searchTerm);
+    loadPosts(currentPage, searchTerm);
   }, [refreshTrigger, currentPage, searchTerm]);
 
   if (loading) {
-    return <div className="loading">Loading posts...</div>;
+    return <div className="loading">{UI_MESSAGES.LOADING}</div>;
   }
 
   if (error) {
     return (
       <div className="error">
         <p>Error: {error}</p>
-        <button onClick={fetchPosts}>Try Again</button>
+        <button onClick={handleRetry}>Try Again</button>
       </div>
     );
   }
@@ -74,7 +88,7 @@ function PostsList({ refreshTrigger }) {
   return (
     <div className="posts-list">
       <div className="posts-header">
-        <h2>All Posts ({pagination.totalPosts || 0})</h2>
+        <h2>All Posts ({pagination.totalItems || 0})</h2>
         <form className="search-form" onSubmit={handleSearch}>
           <div className="search-container">
             <input
@@ -104,7 +118,7 @@ function PostsList({ refreshTrigger }) {
       
       {posts.length === 0 ? (
         <div className="no-posts">
-          <p>{searchTerm ? 'No posts found matching your search.' : 'No posts found. Create your first post!'}</p>
+          <p>{searchTerm ? UI_MESSAGES.NO_SEARCH_RESULTS : `${UI_MESSAGES.NO_POSTS} ${UI_MESSAGES.CREATE_FIRST_POST}`}</p>
         </div>
       ) : (
         <>
@@ -113,7 +127,16 @@ function PostsList({ refreshTrigger }) {
               <div key={post.id} className="post-card">
                 <div className="post-header">
                   <h3>{post.title}</h3>
-                  <span className="post-id">#{post.id}</span>
+                  <div className="post-actions">
+                    <span className="post-id">#{post.id}</span>
+                    <button 
+                      className="delete-btn"
+                      onClick={() => handleDeletePost(post.id)}
+                      title="Delete post"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
                 <p className="post-body">{post.body}</p>
                 <div className="post-footer">
@@ -127,7 +150,7 @@ function PostsList({ refreshTrigger }) {
             <div className="pagination">
               <div className="pagination-info">
                 Page {pagination.currentPage} of {pagination.totalPages} 
-                ({pagination.totalPosts} total posts)
+                ({pagination.totalItems} total posts)
               </div>
               
               <div className="pagination-controls">
